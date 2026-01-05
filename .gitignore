@@ -61,6 +61,11 @@ sysinfo.txt
 *.unitypackage
 *.app
 
+# Blender files (too large for git)
+*.blend
+*.blend1
+*.blend2
+
 # Crashlytics generated file
 crashlytics-build.properties
 

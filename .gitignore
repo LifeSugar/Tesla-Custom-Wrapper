@@ -62,7 +62,7 @@ sysinfo.txt
 *.app
 
 # Blender files (too large for git)
-*.blend
+# *.blend
 *.blend1
 *.blend2
 

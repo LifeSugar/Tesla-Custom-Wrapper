@@ -8,32 +8,35 @@ public class DecalData
 {
     [Header("贴纸基础信息")]
     public string decalName = "Decal";
-    public Texture2D decalTexture; // 贴纸素材图片
+    public Texture2D decalTexture;
     
     [Header("3D空间位置")]
-    public Vector3 worldPosition; // 贴纸在3D空间中的位置
-    public Vector3 projectionDirection = Vector3.down; // 投影方向（通常是表面法线的反方向）
+    public Vector3 worldPosition; 
+    public Vector3 projectionDirection = Vector3.down; // 蓝色轴 (Z)
+    
+    // [新增] 关键修改：存储上方向向量，替代 float rotation
+    // 这代表贴纸的"头顶"朝向 (黄色轴 Y)
+    public Vector3 upVector = Vector3.up; 
     
     [Header("贴纸变换")]
-    public float size = 0.2f; // 贴纸大小（单位：米）
-    public float rotation = 0f; // 贴纸旋转角度（度）
+    public float size = 0.2f; 
     
     [Header("贴纸属性")]
     [Range(0f, 1f)]
-    public float opacity = 1f; // 不透明度
-    public Color tintColor = Color.white; // 着色
+    public float opacity = 1f; 
+    public Color tintColor = Color.white; 
     
     [Header("投影设置")]
-    public float projectionDepth = 0.1f; // 投影深度（防止贴纸被拉伸）
+    public float projectionDepth = 0.1f; 
     
     [Header("混合模式")]
     public BlendMode blendMode = BlendMode.AlphaBlend;
     
     public enum BlendMode
     {
-        AlphaBlend,  // 标准Alpha混合
-        Additive,    // 加法混合
-        Multiply     // 正片叠底
+        AlphaBlend,
+        Additive,
+        Multiply
     }
     
     /// <summary>
@@ -41,16 +44,17 @@ public class DecalData
     /// </summary>
     public Matrix4x4 GetProjectionMatrix()
     {
-        // 创建投影空间的TRS矩阵
-        Quaternion rotation = Quaternion.LookRotation(projectionDirection) * Quaternion.Euler(0, 0, this.rotation);
+        // [修改] 使用双参数 LookRotation
+        // 参数1：看向哪里 (Z轴 - 投影方向)
+        // 参数2：头顶朝哪 (Y轴 - 你的 TestPoint.up)
+        // 这样可以锁定旋转，不会因为接近世界坐标Y轴而乱转
+        Quaternion finalRotation = Quaternion.LookRotation(projectionDirection, upVector);
+        
         Vector3 scale = new Vector3(size, size, projectionDepth);
         
-        return Matrix4x4.TRS(worldPosition, rotation, scale);
+        return Matrix4x4.TRS(worldPosition, finalRotation, scale);
     }
     
-    /// <summary>
-    /// 获取逆投影矩阵（用于shader计算）
-    /// </summary>
     public Matrix4x4 GetInverseProjectionMatrix()
     {
         return GetProjectionMatrix().inverse;

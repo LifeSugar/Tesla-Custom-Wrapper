@@ -6,6 +6,7 @@ Shader "Tesla/CarWithDecals"
         _Color ("Color", Color) = (1,1,1,1)
         _DecalLayer ("Decal Layer", 2D) = "black" {}
         [Toggle] _ShowDecalsOnly ("Show Decals Only (Debug)", Float) = 0
+        [Toggle] _ShowUV ("Show UV (Debug)", Float) = 0
     }
     
     SubShader
@@ -27,10 +28,12 @@ Shader "Tesla/CarWithDecals"
             #pragma fragment frag
             
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+            #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             
             struct Attributes
             {
                 float4 positionOS : POSITION;
+                float3 normalOS : NORMAL;
                 float2 uv : TEXCOORD0;
             };
             
@@ -38,6 +41,7 @@ Shader "Tesla/CarWithDecals"
             {
                 float4 positionCS : SV_POSITION;
                 float2 uv : TEXCOORD0;
+                float3 normalWS : TEXCOORD1;
             };
             
             TEXTURE2D(_MainTex);
@@ -50,6 +54,7 @@ Shader "Tesla/CarWithDecals"
                 float4 _MainTex_ST;
                 half4 _Color;
                 float _ShowDecalsOnly;
+                float _ShowUV;
             CBUFFER_END
             
             Varyings vert(Attributes input)
@@ -57,14 +62,23 @@ Shader "Tesla/CarWithDecals"
                 Varyings output;
                 
                 VertexPositionInputs vertexInput = GetVertexPositionInputs(input.positionOS.xyz);
+                VertexNormalInputs normalInput = GetVertexNormalInputs(input.normalOS);
+                
                 output.positionCS = vertexInput.positionCS;
                 output.uv = TRANSFORM_TEX(input.uv, _MainTex);
+                output.normalWS = normalInput.normalWS;
                 
                 return output;
             }
             
             half4 frag(Varyings input) : SV_Target
             {
+                // Debug模式：显示UV
+                if (_ShowUV > 0.5)
+                {
+                    return half4(input.uv.x, input.uv.y, 0, 1.0);
+                }
+                
                 // 基础颜色
                 half4 baseColor = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv) * _Color;
                 
@@ -78,7 +92,17 @@ Shader "Tesla/CarWithDecals"
                 }
                 
                 // Alpha混合：贴纸覆盖在基础颜色上
-                half3 finalColor = lerp(baseColor.rgb, decalColor.rgb, decalColor.a);
+                half3 albedo = lerp(baseColor.rgb, decalColor.rgb, decalColor.a);
+                
+                // Half Lambert 光照计算
+                Light mainLight = GetMainLight();
+                float3 normalWS = normalize(input.normalWS);
+                float NdotL = dot(normalWS, mainLight.direction);
+                float halfLambert = NdotL * 0.5 + 0.5;
+                
+                // 应用光照
+                half3 lighting = mainLight.color * halfLambert;
+                half3 finalColor = albedo * lighting;
                 
                 return half4(finalColor, 1.0);
             }

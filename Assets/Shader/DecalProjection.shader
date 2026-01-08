@@ -60,13 +60,14 @@ Shader "Tesla/DecalProjection"
                 float _Opacity;
                 half4 _TintColor;
                 float4x4 _DecalProjectionMatrix;
+                float4 _ProjectionDirOS;
             CBUFFER_END
             
             Varyings vert(Attributes input)
             {
                 Varyings output;
                 
-                // 使用UV直接映射到屏幕空间（与Baker shader相同的技术）
+                // 使用UV直接映射到屏幕空间
                 float2 uvRemapped = input.uv * 2.0 - 1.0;
                 
                 #if UNITY_UV_STARTS_AT_TOP
@@ -81,20 +82,20 @@ Shader "Tesla/DecalProjection"
             
             half4 frag(Varyings input) : SV_Target
             {
-                // 1. 从PositionMap读取该UV位置对应的3D坐标
-                float4 worldPosData = SAMPLE_TEXTURE2D(_PositionMap, sampler_PositionMap, input.uv);
+                // 1. 从PositionMap读取该UV位置对应的3D坐标（模型空间）
+                float4 objPosData = SAMPLE_TEXTURE2D(_PositionMap, sampler_PositionMap, input.uv);
                 
                 // 检查是否有有效数据（alpha > 0表示有数据）
-                if (worldPosData.a < 0.01)
+                if (objPosData.a < 0.01)
                 {
                     discard; // 没有数据的地方不绘制
                 }
                 
-                float3 worldPos = worldPosData.xyz;
+                float3 objPos = objPosData.xyz;
                 
                 // 2. 将3D坐标转换到贴纸的投影空间
                 // 投影空间：贴纸中心为原点，XY平面是贴纸平面，范围[-0.5, 0.5]
-                float4 decalSpacePos = mul(_DecalProjectionMatrix, float4(worldPos, 1.0));
+                float4 decalSpacePos = mul(_DecalProjectionMatrix, float4(objPos, 1.0));
                 
                 // 3. 检查是否在投影盒子内（culling）
                 // X和Y范围：[-0.5, 0.5]，Z范围：[0, 1]（投影深度）
@@ -115,9 +116,9 @@ Shader "Tesla/DecalProjection"
                 decalColor.a *= _Opacity * _TintColor.a;
                 
                 // 7. 法线检查（可选）- 防止贴纸出现在背面
-                float3 surfaceNormal = SAMPLE_TEXTURE2D(_NormalMap, sampler_NormalMap, input.uv).xyz;
-                float3 projectionDir = normalize(mul((float3x3)_DecalProjectionMatrix, float3(0, 0, -1)));
-                float normalDot = dot(surfaceNormal, -projectionDir);
+                float3 surfaceNormalOS = normalize(SAMPLE_TEXTURE2D(_NormalMap, sampler_NormalMap, input.uv).xyz);
+                float3 projectionDirOS = normalize(_ProjectionDirOS.xyz);
+                float normalDot = dot(surfaceNormalOS, -projectionDirOS);
                 
                 // 如果法线和投影方向相反（> 90度），淡出贴纸
                 if (normalDot < 0.1)

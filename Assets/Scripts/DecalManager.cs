@@ -6,6 +6,40 @@ using System.Collections.Generic;
 public class DecalManager : MonoBehaviour
 {
     public static DecalManager Instance { get; private set; }
+    
+    /// <summary>
+    /// Gizmo颜色配置结构体
+    /// </summary>
+    [System.Serializable]
+    public class GizmoColorConfig
+    {
+        [Header("颜色配置")]
+        public Color mainPlaneColor = new Color(1f, 1f, 0f, 0.3f);
+        public Color frameColor = new Color(0f, 1f, 0f, 0.8f);
+        public Color depthBoxColor = new Color(0f, 1f, 0f, 0.2f);
+        
+        [Header("控制点颜色")]
+        public Color edgeHandleColor = new Color(1f, 0.5f, 0f, 1f); // 橙色
+        public Color cornerHandleColor = new Color(1f, 0f, 0f, 1f); // 红色
+        public Color handleDraggingColor = new Color(1f, 1f, 0f, 1f); // 拖拽时黄色
+        
+        [Header("尺寸配置")]
+        public float handleSize = 0.05f;
+        public float cornerHandleSize = 0.08f;
+        [Range(0.0001f, 0.01f)]
+        public float lineThicknessScale = 0.0005f;
+        
+        [Header("显示选项")]
+        public bool showDecalPreview = true;
+        public bool showDepthBox = true;
+        
+        [Header("贴纸预览")]
+        [Range(0f, 1f)]
+        public float decalPreviewOpacity = 0.5f;
+    }
+
+    [Header("Gizmo颜色配置")]
+    public GizmoColorConfig gizmoColorConfig = new GizmoColorConfig();
 
     [Header("必需资源")]
     public Texture2D positionMap;
@@ -37,7 +71,19 @@ public class DecalManager : MonoBehaviour
         }
 
         InitializeSystem();
-        MarkDirty(); 
+        MarkDirty();
+        
+        // 延迟一帧后刷新所有TestPoint，确保它们都已OnEnable
+        if (Application.isPlaying)
+        {
+            StartCoroutine(DelayedRefreshAllTestPoints());
+        }
+    }
+    
+    private System.Collections.IEnumerator DelayedRefreshAllTestPoints()
+    {
+        yield return null;
+        RefreshAllTestPoints();
     }
     
     //在 Inspector 修改 Manager 的参数（如分辨率、贴图）时立即刷新
@@ -50,6 +96,12 @@ public class DecalManager : MonoBehaviour
             InitializeSystem();
         }
         MarkDirty();
+        
+        // Gizmo配置变化时刷新所有InteractiveGizmo
+        if (gizmoColorConfig != null)
+        {
+            RefreshAllGizmoConfigs();
+        }
     }
 
     private void OnDisable()
@@ -137,6 +189,47 @@ public class DecalManager : MonoBehaviour
         {
             targetMaterial.SetTexture(decalLayerPropertyName, decalRenderTexture);
         }
+        
+        // 5. 刷新所有现有的TestPoint
+        RefreshAllTestPoints();
+    }
+    
+    /// <summary>
+    /// 刷新所有TestPoint的贴纸显示
+    /// </summary>
+    public void RefreshAllTestPoints()
+    {
+        DecalPoint[] allTestPoints = FindObjectsOfType<DecalPoint>();
+        foreach (DecalPoint testPoint in allTestPoints)
+        {
+            testPoint.ForceRefresh();
+        }
+        if (allTestPoints.Length > 0)
+        {
+            Debug.Log($"DecalManager: 已刷新 {allTestPoints.Length} 个 TestPoint");
+        }
+    }
+    
+    /// <summary>
+    /// 刷新所有InteractiveGizmo的配置
+    /// </summary>
+    public void RefreshAllGizmoConfigs()
+    {
+        InteractiveGizmo[] allGizmos = FindObjectsOfType<InteractiveGizmo>();
+        foreach (InteractiveGizmo gizmo in allGizmos)
+        {
+            gizmo.ApplyColorConfig(gizmoColorConfig);
+        }
+        if (allGizmos.Length > 0)
+        {
+            Debug.Log($"DecalManager: 已刷新 {allGizmos.Length} 个 InteractiveGizmo 配置");
+        }
+    }
+    
+    [ContextMenu("刷新所有Gizmo配置")]
+    private void RefreshAllGizmosFromContextMenu()
+    {
+        RefreshAllGizmoConfigs();
     }
 
     private void RenderAllDecals()
@@ -166,7 +259,7 @@ public class DecalManager : MonoBehaviour
             // 旋转构建
             Quaternion finalRot = Quaternion.LookRotation(decalDirOS, decalUpOS);
             
-            Vector3 scale = new Vector3(decal.size, decal.size, decal.projectionDepth);
+            Vector3 scale = new Vector3(decal.size.x, decal.size.y, decal.projectionDepth);
             Matrix4x4 trs = Matrix4x4.TRS(decalPosOS, finalRot, scale);
             Matrix4x4 invProjectionMatrix = trs.inverse;
 

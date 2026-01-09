@@ -19,7 +19,7 @@ public class DecalData
     public Vector3 upVector = Vector3.up; 
     
     [Header("贴纸变换")]
-    public float size = 0.2f; 
+    public Vector2 size = new Vector2(0.2f, 0.2f); // X: 宽度, Y: 高度 
     
     [Header("贴纸属性")]
     [Range(0f, 1f)]
@@ -50,7 +50,7 @@ public class DecalData
         // 这样可以锁定旋转，不会因为接近世界坐标Y轴而乱转
         Quaternion finalRotation = Quaternion.LookRotation(projectionDirection, upVector);
         
-        Vector3 scale = new Vector3(size, size, projectionDepth);
+        Vector3 scale = new Vector3(size.x, size.y, projectionDepth);
         
         return Matrix4x4.TRS(worldPosition, finalRotation, scale);
     }

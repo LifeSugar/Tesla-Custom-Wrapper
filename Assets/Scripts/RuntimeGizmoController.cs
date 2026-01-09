@@ -7,10 +7,13 @@ using System;
 /// </summary>
 public class RuntimeGizmoController : MonoBehaviour
 {
+    public static RuntimeGizmoController Instance { get; private set; }
+    
     public enum GizmoType
     {
         Translation,
-        Rotation
+        Rotation,
+        Scale
     }
 
     public enum GizmoSpace
@@ -145,6 +148,14 @@ public class RuntimeGizmoController : MonoBehaviour
 
     void Awake()
     {
+        // 单例设置
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+        
         // 自动查找相机
         if (renderCamera == null)
         {
@@ -213,6 +224,11 @@ public class RuntimeGizmoController : MonoBehaviour
 
     void OnDestroy()
     {
+        if (Instance == this)
+        {
+            Instance = null;
+        }
+        
         if (gizmoRoot != null)
         {
             Destroy(gizmoRoot);
@@ -259,6 +275,7 @@ public class RuntimeGizmoController : MonoBehaviour
         // 切换显示状态
         if (translationRoot != null) translationRoot.SetActive(gizmoType == GizmoType.Translation);
         if (rotationRoot != null) rotationRoot.SetActive(gizmoType == GizmoType.Rotation);
+        // Scale模式下隐藏所有Gizmo
         
         // 结束当前可能的拖拽
         if (isDragging) EndDrag();
@@ -318,6 +335,7 @@ public class RuntimeGizmoController : MonoBehaviour
         // 根据初始模式设置显隐
         translationRoot.SetActive(gizmoType == GizmoType.Translation);
         rotationRoot.SetActive(gizmoType == GizmoType.Rotation);
+        // Scale模式下隐藏所有Gizmo
 
         Debug.Log($"[RuntimeGizmoController] Gizmo 初始化完成，当前模式={gizmoType}");
     }
@@ -1031,6 +1049,7 @@ public class RuntimeGizmoController : MonoBehaviour
             // 为了避免递归调用，我们手动应用显隐逻辑
             if (translationRoot != null) translationRoot.SetActive(gizmoType == GizmoType.Translation);
             if (rotationRoot != null) rotationRoot.SetActive(gizmoType == GizmoType.Rotation);
+            // Scale模式下隐藏所有Gizmo
         }
     }
 }
